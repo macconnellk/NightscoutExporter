@@ -196,8 +196,9 @@
                 const startDate = new Date(Date.now() - (hours * 60 * 60 * 1000));
                 const dateString = startDate.toISOString();
                 
-                const fourteenDaysAgo = new Date(Date.now() - (14 * 24 * 60 * 60 * 1000));
-                const fourteenDaysDateString = fourteenDaysAgo.toISOString();
+                // UPDATED: 72 hours for treatments - focused recent data
+                const threeDaysAgo = new Date(Date.now() - (3 * 24 * 60 * 60 * 1000));
+                const threeDaysDateString = threeDaysAgo.toISOString();
                 
                 const requests = [
                     fetchNightscoutData('/api/v1/entries.json', { 
@@ -206,7 +207,7 @@
                     }),
                     fetchNightscoutData('/api/v1/treatments.json', { 
                         count: 500,
-                        'find[created_at][$gte]': fourteenDaysDateString 
+                        'find[created_at][$gte]': threeDaysDateString 
                     }),
                     fetchNightscoutData('/api/v1/devicestatus.json', { 
                         count: 20,
