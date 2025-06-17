@@ -121,6 +121,43 @@
             word-break: break-all;
         }
         
+        .time-picker-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .time-picker-section label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+        
+        .time-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .time-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .time-picker-section small {
+            display: block;
+            color: #6c757d;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
         .instructions {
             background: #e7f3ff;
             border: 2px solid #b3d9ff;
@@ -148,7 +185,13 @@
 <body>
     <div class="container">
         <h1>🩺 Nightscout Exporter</h1>
-        <p class="subtitle">Complete 24h dataset for Claude analysis</p>
+        <p class="subtitle">Custom 24h analysis windows for Claude</p>
+        
+        <div class="time-picker-section">
+            <label for="endTime">Analysis End Time (24h window ends here):</label>
+            <input type="datetime-local" id="endTime" class="time-input">
+            <small>Default: Current time (recommended for latest data)</small>
+        </div>
         
         <button class="export-btn" onclick="exportData()">
             🚀 Export Complete 24h Dataset for Claude
@@ -164,14 +207,15 @@
         </div>
         
         <div class="instructions">
-            <h3>📝 Comprehensive 24h Analysis:</h3>
+            <h3>📝 Custom 24h Analysis Window:</h3>
             <ol>
+                <li><strong>Flexible time window</strong> - Choose any 24h period for analysis</li>
                 <li><strong>Maximum resolution glucose</strong> - Every 5 minutes (288 readings)</li>
                 <li><strong>ALL treatments captured</strong> - Every carb + bolus ≥0.1U prioritized</li>
                 <li><strong>Complete pattern detection</strong> - Handles all complex scenarios</li>
                 <li><strong>100% analysis coverage</strong> - Meets every iAPS workflow requirement</li>
             </ol>
-            <p><strong>💡 Complete data capture for definitive CR/ISF optimization!</strong></p>
+            <p><strong>💡 Perfect for analyzing specific time periods or consistent daily windows!</strong></p>
         </div>
     </div>
 
@@ -188,36 +232,48 @@
             const statusDiv = document.getElementById('status');
             const copySection = document.getElementById('copySection');
             
-            statusDiv.innerHTML = '<div class="status loading">🔄 Capturing comprehensive 24h data for complete analysis...</div>';
+            // Get the selected end time or use current time as fallback
+            const endTimeInput = document.getElementById('endTime').value;
+            const endTime = endTimeInput ? new Date(endTimeInput) : new Date();
+            
+            // Calculate 24-hour window: selected end time minus 24 hours
+            const hours = 24;
+            const startDate = new Date(endTime.getTime() - (hours * 60 * 60 * 1000));
+            const startDateString = startDate.toISOString();
+            
+            const timeRangeDisplay = `${startDate.toLocaleString()} to ${endTime.toLocaleString()}`;
+            
+            statusDiv.innerHTML = `<div class="status loading">🔄 Capturing data from ${timeRangeDisplay}...</div>`;
             copySection.style.display = 'none';
             
             try {
-                // Optimized 24-hour data capture for Claude analysis
-                const hours = 24;
-                const startDate = new Date(Date.now() - (hours * 60 * 60 * 1000));
-                const dateString = startDate.toISOString();
-                
                 const requests = [
                     fetchNightscoutData('/api/v1/entries.json', { 
                         count: 500, // Maximum granularity for sensor artifact detection
-                        'find[dateString][$gte]': dateString 
+                        'find[dateString][$gte]': startDateString,
+                        'find[dateString][$lte]': endTime.toISOString()
                     }),
                     fetchNightscoutData('/api/v1/treatments.json', { 
-                        count: 500, // Ensure we capture ALL treatments in 24h
-                        'find[created_at][$gte]': dateString 
+                        count: 500, // Ensure we capture ALL treatments in window
+                        'find[created_at][$gte]': startDateString,
+                        'find[created_at][$lte]': endTime.toISOString()
                     }),
                     fetchNightscoutData('/api/v1/devicestatus.json', { 
                         count: 10, // More IOB/COB history for complex analysis
-                        'find[created_at][$gte]': dateString 
+                        'find[created_at][$gte]': startDateString,
+                        'find[created_at][$lte]': endTime.toISOString()
                     }),
                     fetchNightscoutData('/api/v1/profile.json', {})
                 ];
                 
                 const [entries, treatments, deviceStatus, profile] = await Promise.all(requests);
                 
-                // Maximum resolution glucose data for precise analysis
+                // Filter data to exact time window
                 const filteredEntries = entries
-                    .filter(entry => new Date(entry.dateString) >= startDate)
+                    .filter(entry => {
+                        const entryTime = new Date(entry.dateString);
+                        return entryTime >= startDate && entryTime <= endTime;
+                    })
                     .slice(0, 288) // Every 5 minutes for 24h = perfect granularity
                     .map(entry => ({
                         dateString: entry.dateString,
@@ -229,7 +285,7 @@
                 // Comprehensive treatment capture with intelligent prioritization
                 const allValidTreatments = treatments.filter(t => {
                     const treatmentTime = new Date(t.created_at);
-                    return treatmentTime >= startDate; // Strict 24h window
+                    return treatmentTime >= startDate && treatmentTime <= endTime;
                 });
                 
                 // Separate by priority to ensure critical data isn't lost
@@ -275,22 +331,28 @@
                 ).length;
                 
                 // Enhanced device status for IOB/COB pattern analysis
-                const recentDeviceStatus = deviceStatus.slice(0, 8).map(status => ({
-                    created_at: status.created_at,
-                    iob: status.openaps?.iob?.iob || null,
-                    cob: status.openaps?.enacted?.COB || null,
-                    bg: status.openaps?.enacted?.bg || null,
-                    eventualBG: status.openaps?.enacted?.eventualBG || null,
-                    // Add fields for complex pattern detection
-                    bolusIOB: status.openaps?.iob?.bolusiob || null,
-                    basalIOB: status.openaps?.iob?.basaliob || null,
-                    lastBolusTime: status.openaps?.iob?.lastBolusTime || null
-                }));
+                const recentDeviceStatus = deviceStatus
+                    .filter(status => {
+                        const statusTime = new Date(status.created_at);
+                        return statusTime >= startDate && statusTime <= endTime;
+                    })
+                    .slice(0, 8)
+                    .map(status => ({
+                        created_at: status.created_at,
+                        iob: status.openaps?.iob?.iob || null,
+                        cob: status.openaps?.enacted?.COB || null,
+                        bg: status.openaps?.enacted?.bg || null,
+                        eventualBG: status.openaps?.enacted?.eventualBG || null,
+                        // Add fields for complex pattern detection
+                        bolusIOB: status.openaps?.iob?.bolusiob || null,
+                        basalIOB: status.openaps?.iob?.basaliob || null,
+                        lastBolusTime: status.openaps?.iob?.lastBolusTime || null
+                    }));
                 
                 exportedData = {
                     exportInfo: {
                         timestamp: new Date().toISOString(),
-                        timeRange: '24h comprehensive data for complete Claude analysis',
+                        timeRange: `Custom 24h window: ${timeRangeDisplay}`,
                         dataPoints: {
                             glucose: filteredEntries.length,
                             treatments: uniqueTreatments.length,
@@ -300,7 +362,7 @@
                             deviceStatus: recentDeviceStatus.length,
                             profile: profile ? 'Available' : 'Not available'
                         },
-                        note: 'Maximum 24h data density: 5-min glucose + ALL treatments prioritized for 100% analysis coverage'
+                        note: `Custom 24h analysis window: 5-min glucose + ALL treatments prioritized for 100% analysis coverage`
                     },
                     glucose: filteredEntries,
                     treatments: uniqueTreatments,
@@ -310,7 +372,8 @@
                 
                 statusDiv.innerHTML = `
                     <div class="status success">
-                        ✅ Comprehensive Export Complete!<br>
+                        ✅ Custom Window Export Complete!<br>
+                        📅 ${timeRangeDisplay}<br>
                         📊 ${filteredEntries.length} glucose readings (5-min resolution)<br>
                         🍽️ ${carbEntries.length} carb entries + ${mealBoluses} manual boluses<br>
                         💉 ${corrections.length} corrections + ${uniqueTreatments.length} total treatments<br>
@@ -402,6 +465,11 @@
         }
 
         window.addEventListener('load', () => {
+            // Set default end time to current time
+            const now = new Date();
+            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('endTime').value = localDateTime;
+            
             if (window.navigator.standalone) {
                 document.querySelector('.instructions').innerHTML = `
                     <h3>🎉 Perfect!</h3>
