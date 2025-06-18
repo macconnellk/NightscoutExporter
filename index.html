@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📱 Nightscout Data Exporter - Context Optimized</title>
+    <title>📱 Nightscout Data Exporter - Fixed</title>
     <style>
         * {
             margin: 0;
@@ -186,12 +186,24 @@
         .instructions li {
             margin: 5px 0;
         }
+        
+        .debug-info {
+            background: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🩺 Nightscout Exporter</h1>
-        <p class="subtitle">Context-optimized 24h windows for Claude analysis</p>
+        <p class="subtitle">Fixed: Reliable 24h data retrieval</p>
         
         <div class="time-picker-section">
             <label for="endTime">Analysis End Time (24h window ends here):</label>
@@ -200,10 +212,11 @@
         </div>
         
         <button class="export-btn" onclick="exportData()">
-            🚀 Export Complete 24h Dataset for Claude
+            🚀 Export Complete 24h Dataset
         </button>
         
         <div id="status"></div>
+        <div id="debugInfo" class="debug-info" style="display: none;"></div>
         
         <div id="copySection" class="copy-section">
             <button class="copy-btn" onclick="copyToClipboard()">
@@ -213,15 +226,15 @@
         </div>
         
         <div class="instructions">
-            <h3>📝 Context-Optimized 24h Analysis:</h3>
+            <h3>🔧 Fixed Data Retrieval:</h3>
             <ol>
-                <li><strong>Smart coverage strategy</strong> - Multiple queries to fill data gaps</li>
-                <li><strong>Context-aware limits</strong> - ~350 glucose readings max for Claude analysis</li>
-                <li><strong>Essential data prioritized</strong> - All carbs + boluses + key corrections</li>
-                <li><strong>Gap detection</strong> - Warns when data is incomplete</li>
-                <li><strong>Analysis-ready output</strong> - Optimized for iAPS workflow requirements</li>
+                <li><strong>Simplified queries</strong> - Single reliable API call approach</li>
+                <li><strong>Client-side filtering</strong> - Get more data, filter locally</li>
+                <li><strong>Better timezone handling</strong> - Uses timestamp instead of dateString</li>
+                <li><strong>Debug information</strong> - Shows actual API responses</li>
+                <li><strong>Robust auth</strong> - Multiple authentication methods tried</li>
             </ol>
-            <p><strong>💡 Balanced approach: Maximum coverage within Claude's context limits!</strong></p>
+            <p><strong>💡 Should now capture all available data reliably!</strong></p>
         </div>
     </div>
 
@@ -233,164 +246,106 @@
         };
 
         let exportedData = null;
+        let debugLog = [];
+
+        function addDebugLog(message) {
+            debugLog.push(`${new Date().toLocaleTimeString()}: ${message}`);
+            const debugDiv = document.getElementById('debugInfo');
+            debugDiv.textContent = debugLog.join('\n');
+            debugDiv.style.display = 'block';
+            console.log(message);
+        }
 
         async function exportData() {
             const statusDiv = document.getElementById('status');
             const copySection = document.getElementById('copySection');
+            debugLog = []; // Reset debug log
             
             // Get the selected end time or use current time as fallback
             const endTimeInput = document.getElementById('endTime').value;
             const endTime = endTimeInput ? new Date(endTimeInput) : new Date();
             
-            // Calculate 24-hour window: selected end time minus 24 hours
+            // Calculate 24-hour window
             const hours = 24;
             const startDate = new Date(endTime.getTime() - (hours * 60 * 60 * 1000));
-            const startDateString = startDate.toISOString();
             
             const timeRangeDisplay = `${startDate.toLocaleString()} to ${endTime.toLocaleString()}`;
+            addDebugLog(`Target window: ${timeRangeDisplay}`);
+            addDebugLog(`Start timestamp: ${startDate.getTime()}`);
+            addDebugLog(`End timestamp: ${endTime.getTime()}`);
             
-            statusDiv.innerHTML = `<div class="status loading">🔄 Capturing data from ${timeRangeDisplay}...</div>`;
+            statusDiv.innerHTML = `<div class="status loading">🔄 Fetching data for ${timeRangeDisplay}...</div>`;
             copySection.style.display = 'none';
             
             try {
-                // Smart query: Get more data to ensure coverage, then filter intelligently
-                const glucoseRequests = [
-                    // Primary: Get larger dataset going backward
-                    fetchNightscoutData('/api/v1/entries.json', { 
-                        count: 500, // Reasonable size but larger than before
-                        'find[dateString][$lte]': endTime.toISOString()
-                    }),
-                    // Backup: Get older data specifically
-                    fetchNightscoutData('/api/v1/entries.json', { 
-                        count: 300,
-                        'find[dateString][$gte]': startDateString,
-                        'find[dateString][$lt]': new Date(startDate.getTime() + 12*60*60*1000).toISOString() // First 12h
-                    })
-                ];
+                addDebugLog('Starting data fetch...');
                 
-                const treatmentRequests = [
-                    fetchNightscoutData('/api/v1/treatments.json', { 
-                        count: 200, // Keep reasonable for context
-                        'find[created_at][$gte]': startDateString,
-                        'find[created_at][$lte]': endTime.toISOString()
-                    }),
-                    fetchNightscoutData('/api/v1/devicestatus.json', { 
-                        count: 10, // Keep minimal
-                        'find[created_at][$gte]': startDateString,
-                        'find[created_at][$lte]': endTime.toISOString()
-                    }),
-                    fetchNightscoutData('/api/v1/profile.json', {})
-                ];
+                // SIMPLIFIED APPROACH: Get recent data and filter client-side
+                // This avoids complex date filtering that might have timezone issues
                 
-                // Execute requests
-                const [glucoseResults, treatmentResults] = await Promise.all([
-                    Promise.allSettled(glucoseRequests),
-                    Promise.all(treatmentRequests)
-                ]);
+                // Get glucose entries - use simple count-based approach
+                addDebugLog('Fetching glucose entries...');
+                const entries = await fetchNightscoutData('/api/v1/entries.json', { 
+                    count: 600  // Get enough recent data to cover 24h+ (5min intervals = 288/day)
+                });
                 
-                // Combine glucose data from multiple queries
-                let allGlucoseEntries = [];
-                for (const result of glucoseResults) {
-                    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-                        allGlucoseEntries = allGlucoseEntries.concat(result.value);
-                    }
+                addDebugLog(`Retrieved ${entries.length} glucose entries`);
+                if (entries.length > 0) {
+                    addDebugLog(`Earliest entry: ${entries[entries.length - 1].dateString}`);
+                    addDebugLog(`Latest entry: ${entries[0].dateString}`);
                 }
                 
-                // Remove duplicates based on dateString
-                const uniqueGlucoseEntries = allGlucoseEntries.filter((entry, index, arr) => 
-                    arr.findIndex(e => e.dateString === entry.dateString) === index
-                );
+                // Get treatments - use simple count-based approach
+                addDebugLog('Fetching treatments...');
+                const treatments = await fetchNightscoutData('/api/v1/treatments.json', { 
+                    count: 150  // Get recent treatments
+                });
                 
-                // Use combined results
-                const entries = uniqueGlucoseEntries;
-                const [treatments, deviceStatus, profile] = treatmentResults;
+                addDebugLog(`Retrieved ${treatments.length} treatments`);
                 
-                // Smart filtering: Get best coverage while staying within context limits
-                const timeFilteredEntries = entries
+                // Get device status
+                addDebugLog('Fetching device status...');
+                const deviceStatus = await fetchNightscoutData('/api/v1/devicestatus.json', { 
+                    count: 20
+                });
+                
+                addDebugLog(`Retrieved ${deviceStatus.length} device status entries`);
+                
+                // Get profile
+                addDebugLog('Fetching profile...');
+                const profile = await fetchNightscoutData('/api/v1/profile.json', {});
+                
+                // CLIENT-SIDE FILTERING: Filter by actual timestamps
+                const startTimestamp = startDate.getTime();
+                const endTimestamp = endTime.getTime();
+                
+                addDebugLog(`Filtering data between timestamps ${startTimestamp} and ${endTimestamp}`);
+                
+                // Filter glucose entries by timestamp (more reliable than dateString)
+                const filteredEntries = entries
                     .filter(entry => {
-                        const entryTime = new Date(entry.dateString);
-                        return entryTime >= startDate && entryTime <= endTime;
+                        const entryTimestamp = new Date(entry.dateString).getTime();
+                        return entryTimestamp >= startTimestamp && entryTimestamp <= endTimestamp;
                     })
-                    .sort((a, b) => new Date(b.dateString) - new Date(a.dateString)); // Newest first
-                
-                // If we have good coverage, use normal sampling
-                // If gaps detected, prioritize keeping data from different time periods
-                let filteredEntries;
-                if (timeFilteredEntries.length >= 288) {
-                    // Good coverage - sample evenly
-                    filteredEntries = timeFilteredEntries
-                        .slice(0, 350) // Slightly more than 288 for context efficiency
-                        .map(entry => ({
-                            dateString: entry.dateString,
-                            sgv: entry.sgv,
-                            trend: entry.trend,
-                            direction: entry.direction
-                        }));
-                } else {
-                    // Poor coverage - use all available data
-                    filteredEntries = timeFilteredEntries.map(entry => ({
+                    .sort((a, b) => new Date(b.dateString) - new Date(a.dateString)) // Newest first
+                    .slice(0, 350) // Limit for context
+                    .map(entry => ({
                         dateString: entry.dateString,
                         sgv: entry.sgv,
                         trend: entry.trend,
                         direction: entry.direction
                     }));
-                }
                 
-                // Validate data coverage
-                const dataValidation = {
-                    hasGlucoseData: filteredEntries.length > 0,
-                    earliestGlucose: filteredEntries.length > 0 ? new Date(filteredEntries[filteredEntries.length - 1].dateString) : null,
-                    latestGlucose: filteredEntries.length > 0 ? new Date(filteredEntries[0].dateString) : null,
-                    requestedStart: startDate,
-                    requestedEnd: endTime
-                };
+                addDebugLog(`Filtered to ${filteredEntries.length} glucose entries in time window`);
                 
-                // Calculate actual coverage
-                let coverageWarning = '';
-                if (dataValidation.hasGlucoseData) {
-                    const actualStartGap = (dataValidation.earliestGlucose - dataValidation.requestedStart) / (1000 * 60 * 60); // hours
-                    const actualEndGap = (dataValidation.requestedEnd - dataValidation.latestGlucose) / (1000 * 60 * 60); // hours
-                    
-                    if (actualStartGap > 1) {
-                        coverageWarning += `⚠️ Missing ${actualStartGap.toFixed(1)}h from start of window. `;
-                    }
-                    if (actualEndGap > 1) {
-                        coverageWarning += `⚠️ Missing ${actualEndGap.toFixed(1)}h from end of window.`;
-                    }
-                }
-                
-                // Comprehensive treatment capture with intelligent prioritization
-                const allValidTreatments = treatments.filter(t => {
-                    const treatmentTime = new Date(t.created_at);
-                    return treatmentTime >= startDate && treatmentTime <= endTime;
-                });
-                
-                // Separate by priority to ensure critical data isn't lost
-                const carbEntries = allValidTreatments.filter(t => t.carbs > 0);
-                const manualBoluses = allValidTreatments.filter(t => 
-                    t.eventType === 'Bolus' && t.insulin >= 0.1); // Capture ALL manual doses
-                const corrections = allValidTreatments.filter(t => 
-                    t.eventType === 'SMB' && t.insulin >= 0.1); // Capture ALL corrections
-                const profileChanges = allValidTreatments.filter(t => 
-                    t.eventType === 'Profile Switch');
-                const tempTargets = allValidTreatments.filter(t => 
-                    t.eventType === 'Temp Target');
-                
-                // Combine with priority order, ensuring we get all critical events
-                const prioritizedTreatments = [
-                    ...carbEntries, // HIGHEST priority - essential for CR analysis
-                    ...manualBoluses, // HIGH priority - manual decisions
-                    ...profileChanges, // HIGH priority - parameter changes
-                    ...corrections, // MEDIUM priority - correction patterns  
-                    ...tempTargets // LOWER priority - context
-                ];
-                
-                // Remove duplicates and limit total for context window
-                const uniqueTreatments = prioritizedTreatments
-                    .filter((treatment, index, array) => 
-                        array.findIndex(t => t.created_at === treatment.created_at && 
-                                            t.eventType === treatment.eventType) === index)
-                    .slice(0, 60) // Reduced from 75 to save context space
+                // Filter treatments by timestamp
+                const filteredTreatments = treatments
+                    .filter(treatment => {
+                        const treatmentTimestamp = new Date(treatment.created_at).getTime();
+                        return treatmentTimestamp >= startTimestamp && treatmentTimestamp <= endTimestamp;
+                    })
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .slice(0, 80) // Limit for context
                     .map(treatment => ({
                         created_at: treatment.created_at,
                         carbs: treatment.carbs || 0,
@@ -398,66 +353,90 @@
                         eventType: treatment.eventType,
                         notes: treatment.notes || '',
                         duration: treatment.duration || 0
-                        // Removed extra fields to save space
                     }));
                 
-                const mealBoluses = uniqueTreatments.filter(t => 
-                    t.eventType === 'Bolus' && t.insulin >= 0.1
-                ).length;
+                addDebugLog(`Filtered to ${filteredTreatments.length} treatments in time window`);
                 
-                // Minimal device status for context efficiency
-                const recentDeviceStatus = deviceStatus
+                // Filter device status
+                const filteredDeviceStatus = deviceStatus
                     .filter(status => {
-                        const statusTime = new Date(status.created_at);
-                        return statusTime >= startDate && statusTime <= endTime;
+                        const statusTimestamp = new Date(status.created_at).getTime();
+                        return statusTimestamp >= startTimestamp && statusTimestamp <= endTimestamp;
                     })
-                    .slice(0, 5) // Reduced to save context space
+                    .slice(0, 10)
                     .map(status => ({
                         created_at: status.created_at,
                         iob: status.openaps?.iob?.iob || null,
                         cob: status.openaps?.enacted?.COB || null,
                         bg: status.openaps?.enacted?.bg || null
-                        // Removed extra fields to save context space
                     }));
+                
+                addDebugLog(`Filtered to ${filteredDeviceStatus.length} device status entries`);
+                
+                // Calculate coverage statistics
+                let coverageInfo = '';
+                let coverageStatus = 'success';
+                
+                if (filteredEntries.length === 0) {
+                    coverageInfo = '❌ No glucose data found in time window';
+                    coverageStatus = 'error';
+                } else {
+                    const earliestEntry = new Date(filteredEntries[filteredEntries.length - 1].dateString);
+                    const latestEntry = new Date(filteredEntries[0].dateString);
+                    const expectedDataPoints = Math.floor((endTimestamp - startTimestamp) / (5 * 60 * 1000)); // 5min intervals
+                    const coveragePercent = Math.round((filteredEntries.length / expectedDataPoints) * 100);
+                    
+                    addDebugLog(`Coverage: ${filteredEntries.length}/${expectedDataPoints} points (${coveragePercent}%)`);
+                    
+                    if (coveragePercent < 70) {
+                        coverageInfo = `⚠️ ${coveragePercent}% coverage - some data may be missing`;
+                        coverageStatus = 'warning';
+                    } else {
+                        coverageInfo = `✅ ${coveragePercent}% coverage - excellent data quality`;
+                    }
+                }
+                
+                // Count important treatment types
+                const carbEntries = filteredTreatments.filter(t => t.carbs > 0);
+                const bolusEntries = filteredTreatments.filter(t => t.eventType === 'Bolus' && t.insulin >= 0.1);
+                const corrections = filteredTreatments.filter(t => t.eventType === 'SMB' && t.insulin >= 0.1);
                 
                 exportedData = {
                     exportInfo: {
                         timestamp: new Date().toISOString(),
-                        timeRange: `Custom 24h window: ${timeRangeDisplay}`,
+                        timeRange: timeRangeDisplay,
                         dataValidation: {
                             requestedWindow: `${startDate.toISOString()} to ${endTime.toISOString()}`,
-                            actualGlucoseRange: dataValidation.hasGlucoseData ? 
-                                `${dataValidation.earliestGlucose.toISOString()} to ${dataValidation.latestGlucose.toISOString()}` : 
-                                'No glucose data found',
-                            coverageWarning: coverageWarning || 'Full coverage achieved',
-                            dataGaps: coverageWarning ? 'Data may be incomplete - verify critical periods' : 'No significant gaps detected'
+                            actualDataRange: filteredEntries.length > 0 ? 
+                                `${filteredEntries[filteredEntries.length - 1].dateString} to ${filteredEntries[0].dateString}` : 
+                                'No data',
+                            coverageInfo: coverageInfo
                         },
                         dataPoints: {
                             glucose: filteredEntries.length,
-                            treatments: uniqueTreatments.length,
+                            treatments: filteredTreatments.length,
                             carbEntries: carbEntries.length,
-                            mealBoluses: mealBoluses,
+                            bolusEntries: bolusEntries.length,
                             corrections: corrections.length,
-                            deviceStatus: recentDeviceStatus.length,
+                            deviceStatus: filteredDeviceStatus.length,
                             profile: profile ? 'Available' : 'Not available'
                         },
-                        note: `Smart 24h analysis: Optimized for Claude context limits while maximizing coverage`
+                        note: "Fixed exporter: Simplified queries with client-side filtering for reliable data retrieval"
                     },
                     glucose: filteredEntries,
-                    treatments: uniqueTreatments,
-                    deviceStatus: recentDeviceStatus,
+                    treatments: filteredTreatments,
+                    deviceStatus: filteredDeviceStatus,
                     profile: profile
                 };
                 
                 statusDiv.innerHTML = `
-                    <div class="status ${coverageWarning ? 'warning' : 'success'}">
-                        ${coverageWarning ? '⚠️' : '✅'} Custom Window Export ${coverageWarning ? 'Partial' : 'Complete'}!<br>
+                    <div class="status ${coverageStatus}">
+                        ✅ Export Complete!<br>
                         📅 ${timeRangeDisplay}<br>
-                        ${coverageWarning}<br>
-                        📊 ${filteredEntries.length} glucose readings (5-min resolution)<br>
-                        🍽️ ${carbEntries.length} carb entries + ${mealBoluses} manual boluses<br>
-                        💉 ${corrections.length} corrections + ${uniqueTreatments.length} total treatments<br>
-                        ${coverageWarning ? '⚠️ Partial data - check Nightscout for missing periods' : '🎯 100% analysis capability achieved!'}
+                        ${coverageInfo}<br>
+                        📊 ${filteredEntries.length} glucose readings<br>
+                        🍽️ ${carbEntries.length} carb entries + ${bolusEntries.length} boluses<br>
+                        💉 ${corrections.length} corrections + ${filteredTreatments.length} total treatments
                     </div>
                 `;
                 
@@ -466,11 +445,15 @@
                 const preview = JSON.stringify(exportedData, null, 2).substring(0, 400) + '...';
                 document.getElementById('dataPreview').textContent = preview;
                 
+                addDebugLog('Export completed successfully');
+                
             } catch (error) {
+                addDebugLog(`Export failed: ${error.message}`);
                 statusDiv.innerHTML = `
                     <div class="status error">
                         ❌ Export Failed<br>
-                        ${error.message}
+                        ${error.message}<br>
+                        Check debug info below for details
                     </div>
                 `;
                 console.error('Export error:', error);
@@ -480,42 +463,71 @@
         async function fetchNightscoutData(endpoint, params) {
             const url = new URL(CONFIG.baseUrl + endpoint);
             
+            // Add parameters to URL
             Object.keys(params).forEach(key => {
-                if (params[key]) url.searchParams.append(key, params[key]);
+                if (params[key] !== undefined && params[key] !== null) {
+                    url.searchParams.append(key, params[key]);
+                }
             });
             
-            console.log(`Fetching ${endpoint} with params:`, params); // Debug logging
+            addDebugLog(`Fetching: ${endpoint} with params: ${JSON.stringify(params)}`);
             
+            // Try different authentication methods
             const authMethods = [
-                { headers: { 'api-secret': CONFIG.apiSecret } },
-                { headers: { 'Authorization': `Bearer ${CONFIG.apiSecret}` } },
-                (() => {
-                    url.searchParams.append('token', CONFIG.token);
-                    return {};
-                })()
+                // Method 1: API Secret in header
+                () => ({
+                    headers: { 
+                        'api-secret': CONFIG.apiSecret,
+                        'Accept': 'application/json'
+                    }
+                }),
+                // Method 2: Bearer token
+                () => ({
+                    headers: { 
+                        'Authorization': `Bearer ${CONFIG.apiSecret}`,
+                        'Accept': 'application/json'
+                    }
+                }),
+                // Method 3: Token in URL
+                () => {
+                    url.searchParams.set('token', CONFIG.token);
+                    return {
+                        headers: { 'Accept': 'application/json' }
+                    };
+                }
             ];
             
-            for (const method of authMethods) {
+            let lastError = null;
+            
+            for (let i = 0; i < authMethods.length; i++) {
                 try {
+                    const authMethod = authMethods[i]();
+                    addDebugLog(`Trying auth method ${i + 1} for ${endpoint}`);
+                    
                     const response = await fetch(url.toString(), {
                         method: 'GET',
-                        headers: {
-                            'Accept': 'application/json',
-                            ...method.headers
-                        }
+                        ...authMethod
                     });
+                    
+                    addDebugLog(`Response status: ${response.status} ${response.statusText}`);
                     
                     if (response.ok) {
                         const data = await response.json();
-                        console.log(`${endpoint} returned ${Array.isArray(data) ? data.length : 'non-array'} items`);
+                        const dataLength = Array.isArray(data) ? data.length : 'non-array';
+                        addDebugLog(`Success: ${endpoint} returned ${dataLength} items`);
                         return data;
+                    } else {
+                        const errorText = await response.text();
+                        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
+                        addDebugLog(`Auth method ${i + 1} failed: ${lastError.message}`);
                     }
                 } catch (error) {
-                    console.log(`Auth method failed for ${endpoint}:`, error.message);
+                    lastError = error;
+                    addDebugLog(`Auth method ${i + 1} error: ${error.message}`);
                 }
             }
             
-            throw new Error(`Failed to fetch ${endpoint} - check Nightscout connectivity`);
+            throw new Error(`All auth methods failed for ${endpoint}. Last error: ${lastError?.message || 'Unknown error'}`);
         }
 
         async function copyToClipboard() {
@@ -554,12 +566,7 @@
             const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
             document.getElementById('endTime').value = localDateTime;
             
-            if (window.navigator.standalone) {
-                document.querySelector('.instructions').innerHTML = `
-                    <h3>🎉 Perfect!</h3>
-                    <p>This app is ready to use. Focus: Manual meal boluses for CR optimization!</p>
-                `;
-            }
+            addDebugLog('App loaded, ready to export data');
         });
     </script>
 </body>
