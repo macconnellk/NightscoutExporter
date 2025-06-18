@@ -280,14 +280,41 @@
             try {
                 addDebugLog('Starting data fetch...');
                 
+                // Calculate timestamps first
+                const startTimestamp = startDate.getTime();
+                const endTimestamp = endTime.getTime();
+                
+                addDebugLog(`Filtering data between timestamps ${startTimestamp} and ${endTimestamp}`);
+                
                 // SIMPLIFIED APPROACH: Get recent data and filter client-side
                 // This avoids complex date filtering that might have timezone issues
                 
-                // Get glucose entries - use simple count-based approach
+                // Get glucose entries - try larger count to find missing data
                 addDebugLog('Fetching glucose entries...');
-                const entries = await fetchNightscoutData('/api/v1/entries.json', { 
-                    count: 600  // Get enough recent data to cover 24h+ (5min intervals = 288/day)
+                let entries = await fetchNightscoutData('/api/v1/entries.json', { 
+                    count: 1000  // Increased to find more historical data
                 });
+                
+                // If we still don't have enough historical data, try a date-based query
+                if (entries.length > 0) {
+                    const earliestTimestamp = new Date(entries[entries.length - 1].dateString).getTime();
+                    addDebugLog(`Earliest data: ${new Date(earliestTimestamp).toISOString()}`);
+                    
+                    if (earliestTimestamp > startTimestamp) {
+                        addDebugLog('Missing historical data - trying date-based query...');
+                        try {
+                            const historicalEntries = await fetchNightscoutData('/api/v1/entries.json', {
+                                'find[dateString][$gte]': startDate.toISOString(),
+                                'find[dateString][$lte]': new Date(earliestTimestamp).toISOString(),
+                                count: 500
+                            });
+                            addDebugLog(`Historical query returned ${historicalEntries.length} additional entries`);
+                            entries = [...historicalEntries, ...entries];
+                        } catch (error) {
+                            addDebugLog(`Historical query failed: ${error.message}`);
+                        }
+                    }
+                }
                 
                 addDebugLog(`Retrieved ${entries.length} glucose entries`);
                 if (entries.length > 0) {
@@ -315,20 +342,24 @@
                 addDebugLog('Fetching profile...');
                 const profile = await fetchNightscoutData('/api/v1/profile.json', {});
                 
-                // CLIENT-SIDE FILTERING: Filter by actual timestamps
-                const startTimestamp = startDate.getTime();
-                const endTimestamp = endTime.getTime();
-                
-                addDebugLog(`Filtering data between timestamps ${startTimestamp} and ${endTimestamp}`);
+                // CLIENT-SIDE FILTERING: Filter by actual timestamps (already calculated above)
                 
                 // Filter glucose entries by timestamp (more reliable than dateString)
-                const filteredEntries = entries
+                let filteredEntries = entries
                     .filter(entry => {
                         const entryTimestamp = new Date(entry.dateString).getTime();
                         return entryTimestamp >= startTimestamp && entryTimestamp <= endTimestamp;
                     })
-                    .sort((a, b) => new Date(b.dateString) - new Date(a.dateString)) // Newest first
-                    .slice(0, 350) // Limit for context
+                    .sort((a, b) => new Date(b.dateString) - new Date(a.dateString)); // Newest first
+                
+                // Smart sampling: If we have excellent coverage, sample every other reading to save context
+                if (filteredEntries.length > 300) {
+                    addDebugLog(`Excellent coverage (${filteredEntries.length} readings) - sampling every other for context efficiency`);
+                    filteredEntries = filteredEntries.filter((entry, index) => index % 2 === 0);
+                }
+                
+                filteredEntries = filteredEntries
+                    .slice(0, 350) // Final limit for context
                     .map(entry => ({
                         dateString: entry.dateString,
                         sgv: entry.sgv,
