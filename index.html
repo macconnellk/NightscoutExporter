@@ -3,492 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📱 Nightscout Data Exporter - Fixed</title>
+    <title>🩺 Nightscout iAPS Exporter - Optimized</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 30px 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        }
-        
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 24px;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-        
-        .export-btn {
-            width: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 18px 20px;
-            border-radius: 15px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            margin: 10px 0;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .export-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }
-        
-        .export-btn:active {
-            transform: translateY(0);
-        }
-        
-        .status {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            font-weight: 500;
-        }
-        
-        .loading {
-            background: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffeaa7;
-        }
-        
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 2px solid #c3e6cb;
-        }
-        
-        .warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffc107;
-        }
-        
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 2px solid #f5c6cb;
-        }
-        
-        .copy-section {
-            margin: 20px 0;
-            display: none;
-        }
-        
-        .copy-btn {
-            width: 100%;
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px 0;
-        }
-        
-        .data-preview {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
-            max-height: 200px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        
-        .time-picker-section {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .time-picker-section label {
-            display: block;
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 8px;
-        }
-        
-        .time-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ced4da;
-            border-radius: 8px;
-            font-size: 16px;
-            background: white;
-        }
-        
-        .time-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .time-picker-section small {
-            display: block;
-            color: #6c757d;
-            margin-top: 5px;
-            font-style: italic;
-        }
-        
-        .instructions {
-            background: #e7f3ff;
-            border: 2px solid #b3d9ff;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        
-        .instructions h3 {
-            color: #0056b3;
-            margin-bottom: 10px;
-        }
-        
-        .instructions ol {
-            margin-left: 20px;
-        }
-        
-        .instructions li {
-            margin: 5px 0;
-        }
-        
-        .debug-info {
-            background: #f1f3f4;
-            border: 1px solid #dadce0;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 15px 0;
-            font-family: monospace;
-            font-size: 11px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🩺 Nightscout Exporter</h1>
-        <p class="subtitle">Fixed: Reliable 24h data retrieval</p>
-        
-        <div class="time-picker-section">
-            <label for="endTime">Analysis End Time (24h window ends here):</label>
-            <input type="datetime-local" id="endTime" class="time-input">
-            <small>Default: Current time (recommended for latest data)</small>
-        </div>
-        
-        <button class="export-btn" onclick="exportData()">
-            🚀 Export Complete 24h Dataset
-        </button>
-        
-        <div id="status"></div>
-        <div id="debugInfo" class="debug-info" style="display: none;"></div>
-        
-        <div id="copySection" class="copy-section">
-            <button class="copy-btn" onclick="copyToClipboard()">
-                📋 Copy Data for Claude
-            </button>
-            <div class="data-preview" id="dataPreview"></div>
-        </div>
-        
-        <div class="instructions">
-            <h3>🔧 Fixed Data Retrieval:</h3>
-            <ol>
-                <li><strong>Simplified queries</strong> - Single reliable API call approach</li>
-                <li><strong>Client-side filtering</strong> - Get more data, filter locally</li>
-                <li><strong>Better timezone handling</strong> - Uses timestamp instead of dateString</li>
-                <li><strong>Debug information</strong> - Shows actual API responses</li>
-                <li><strong>Robust auth</strong> - Multiple authentication methods tried</li>
-            </ol>
-            <p><strong>💡 Should now capture all available data reliably!</strong></p>
-        </div>
-    </div>
-
-    <script>
-        const CONFIG = {
-            baseUrl: 'https://bmac.us.nightscoutpro.com',
-            apiSecret: 'uFhaZjS2jLaz',
-            token: 'cockpit-cdbc465a76b45661'
-        };
-
-        let exportedData = null;
-        let debugLog = [];
-
-        function addDebugLog(message) {
-            debugLog.push(`${new Date().toLocaleTimeString()}: ${message}`);
-            const debugDiv = document.getElementById('debugInfo');
-            debugDiv.textContent = debugLog.join('\n');
-            debugDiv.style.display = 'block';
-            console.log(message);
-        }
-
-        async function exportData() {
-            const statusDiv = document.getElementById('status');
-            const copySection = document.getElementById('copySection');
-            debugLog = []; // Reset debug log
-            
-            // Get the selected end time or use current time as fallback
-            const endTimeInput = document.getElementById('endTime').value;
-            const endTime = endTimeInput ? new Date(endTimeInput) : new Date();
-            
-            // Calculate 24-hour window
-            const hours = 24;
-            const startDate = new Date(endTime.getTime() - (hours * 60 * 60 * 1000));
-            
-            const timeRangeDisplay = `${startDate.toLocaleString()} to ${endTime.toLocaleString()}`;
-            addDebugLog(`Target window: ${timeRangeDisplay}`);
-            addDebugLog(`Start timestamp: ${startDate.getTime()}`);
-            addDebugLog(`End timestamp: ${endTime.getTime()}`);
-            
-            statusDiv.innerHTML = `<div class="status loading">🔄 Fetching data for ${timeRangeDisplay}...</div>`;
-            copySection.style.display = 'none';
-            
-            try {
-                addDebugLog('Starting data fetch...');
-                
-                // Calculate timestamps first
-                const startTimestamp = startDate.getTime();
-                const endTimestamp = endTime.getTime();
-                
-                addDebugLog(`Filtering data between timestamps ${startTimestamp} and ${endTimestamp}`);
-                
-                // SIMPLIFIED APPROACH: Get recent data and filter client-side
-                // This avoids complex date filtering that might have timezone issues
-                
-                // Get glucose entries - try larger count to find missing data
-                addDebugLog('Fetching glucose entries...');
-                let entries = await fetchNightscoutData('/api/v1/entries.json', { 
-                    count: 1000  // Increased to find more historical data
-                });
-                
-                // If we still don't have enough historical data, try a date-based query
-                if (entries.length > 0) {
-                    const earliestTimestamp = new Date(entries[entries.length - 1].dateString).getTime();
-                    addDebugLog(`Earliest data: ${new Date(earliestTimestamp).toISOString()}`);
-                    
-                    if (earliestTimestamp > startTimestamp) {
-                        addDebugLog('Missing historical data - trying date-based query...');
-                        try {
-                            const historicalEntries = await fetchNightscoutData('/api/v1/entries.json', {
-                                'find[dateString][$gte]': startDate.toISOString(),
-                                'find[dateString][$lte]': new Date(earliestTimestamp).toISOString(),
-                                count: 500
-                            });
-                            addDebugLog(`Historical query returned ${historicalEntries.length} additional entries`);
-                            entries = [...historicalEntries, ...entries];
-                        } catch (error) {
-                            addDebugLog(`Historical query failed: ${error.message}`);
-                        }
-                    }
-                }
-                
-                addDebugLog(`Retrieved ${entries.length} glucose entries`);
-                if (entries.length > 0) {
-                    addDebugLog(`Earliest entry: ${entries[entries.length - 1].dateString}`);
-                    addDebugLog(`Latest entry: ${entries[0].dateString}`);
-                }
-                
-                // Get treatments - use simple count-based approach
-                addDebugLog('Fetching treatments...');
-                const treatments = await fetchNightscoutData('/api/v1/treatments.json', { 
-                    count: 150  // Get recent treatments
-                });
-                
-                addDebugLog(`Retrieved ${treatments.length} treatments`);
-                
-                // Get device status
-                addDebugLog('Fetching device status...');
-                const deviceStatus = await fetchNightscoutData('/api/v1/devicestatus.json', { 
-                    count: 20
-                });
-                
-                addDebugLog(`Retrieved ${deviceStatus.length} device status entries`);
-                
-                // Get profile
-                addDebugLog('Fetching profile...');
-                const profile = await fetchNightscoutData('/api/v1/profile.json', {});
-                
-                // CLIENT-SIDE FILTERING: Filter by actual timestamps (already calculated above)
-                
-                // Filter glucose entries by timestamp (more reliable than dateString)
-                let filteredEntries = entries
-                    .filter(entry => {
-                        const entryTimestamp = new Date(entry.dateString).getTime();
-                        return entryTimestamp >= startTimestamp && entryTimestamp <= endTimestamp;
-                    })
-                    .sort((a, b) => new Date(b.dateString) - new Date(a.dateString)); // Newest first
-                
-                // Smart sampling: If we have excellent coverage, sample every other reading to save context
-                if (filteredEntries.length > 300) {
-                    addDebugLog(`Excellent coverage (${filteredEntries.length} readings) - sampling every other for context efficiency`);
-                    filteredEntries = filteredEntries.filter((entry, index) => index % 2 === 0);
-                }
-                
-                filteredEntries = filteredEntries
-                    .slice(0, 350) // Final limit for context
-                    .map(entry => ({
-                        dateString: entry.dateString,
-                        sgv: entry.sgv,
-                        trend: entry.trend,
-                        direction: entry.direction
-                    }));
-                
-                addDebugLog(`Filtered to ${filteredEntries.length} glucose entries in time window`);
-                
-                // Filter treatments by timestamp
-                const filteredTreatments = treatments
-                    .filter(treatment => {
-                        const treatmentTimestamp = new Date(treatment.created_at).getTime();
-                        return treatmentTimestamp >= startTimestamp && treatmentTimestamp <= endTimestamp;
-                    })
-                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                    .slice(0, 80) // Limit for context
-                    .map(treatment => ({
-                        created_at: treatment.created_at,
-                        carbs: treatment.carbs || 0,
-                        insulin: treatment.insulin || 0,
-                        eventType: treatment.eventType,
-                        notes: treatment.notes || '',
-                        duration: treatment.duration || 0
-                    }));
-                
-                addDebugLog(`Filtered to ${filteredTreatments.length} treatments in time window`);
-                
-                // Filter device status
-                const filteredDeviceStatus = deviceStatus
-                    .filter(status => {
-                        const statusTimestamp = new Date(status.created_at).getTime();
-                        return statusTimestamp >= startTimestamp && statusTimestamp <= endTimestamp;
-                    })
-                    .slice(0, 10)
-                    .map(status => ({
-                        created_at: status.created_at,
-                        iob: status.openaps?.iob?.iob || null,
-                        cob: status.openaps?.enacted?.COB || null,
-                        bg: status.openaps?.enacted?.bg || null
-                    }));
-                
-                addDebugLog(`Filtered to ${filteredDeviceStatus.length} device status entries`);
-                
-                // Calculate coverage statistics
-                let coverageInfo = '';
-                let coverageStatus = 'success';
-                
-                if (filteredEntries.length === 0) {
-                    coverageInfo = '❌ No glucose data found in time window';
-                    coverageStatus = 'error';
-                } else {
-                    const earliestEntry = new Date(filteredEntries[filteredEntries.length - 1].dateString);
-                    const latestEntry = new Date(filteredEntries[0].dateString);
-                    const expectedDataPoints = Math.floor((endTimestamp - startTimestamp) / (5 * 60 * 1000)); // 5min intervals
-                    const coveragePercent = Math.round((filteredEntries.length / expectedDataPoints) * 100);
-                    
-                    addDebugLog(`Coverage: ${filteredEntries.length}/${expectedDataPoints} points (${coveragePercent}%)`);
-                    
-                    if (coveragePercent < 70) {
-                        coverageInfo = `⚠️ ${coveragePercent}% coverage - some data may be missing`;
-                        coverageStatus = 'warning';
-                    } else {
-                        coverageInfo = `✅ ${coveragePercent}% coverage - excellent data quality`;
-                    }
-                }
-                
-                // Count important treatment types
-                const carbEntries = filteredTreatments.filter(t => t.carbs > 0);
-                const bolusEntries = filteredTreatments.filter(t => t.eventType === 'Bolus' && t.insulin >= 0.1);
-                const corrections = filteredTreatments.filter(t => t.eventType === 'SMB' && t.insulin >= 0.1);
-                
-                exportedData = {
-                    exportInfo: {
-                        timestamp: new Date().toISOString(),
-                        timeRange: timeRangeDisplay,
-                        dataValidation: {
-                            requestedWindow: `${startDate.toISOString()} to ${endTime.toISOString()}`,
-                            actualDataRange: filteredEntries.length > 0 ? 
-                                `${filteredEntries[filteredEntries.length - 1].dateString} to ${filteredEntries[0].dateString}` : 
-                                'No data',
-                            coverageInfo: coverageInfo
-                        },
-                        dataPoints: {
-                            glucose: filteredEntries.length,
-                            treatments: filteredTreatments.length,
-                            carbEntries: carbEntries.length,
-                            bolusEntries: bolusEntries.length,
-                            corrections: corrections.length,
-                            deviceStatus: filteredDeviceStatus.length,
-                            profile: profile ? 'Available' : 'Not available'
-                        },
-                        note: "Fixed exporter: Simplified queries with client-side filtering for reliable data retrieval"
-                    },
-                    glucose: filteredEntries,
-                    treatments: filteredTreatments,
-                    deviceStatus: filteredDeviceStatus,
-                    profile: profile
-                };
-                
-                statusDiv.innerHTML = `
-                    <div class="status ${coverageStatus}">
-                        ✅ Export Complete!<br>
-                        📅 ${timeRangeDisplay}<br>
-                        ${coverageInfo}<br>
-                        📊 ${filteredEntries.length} glucose readings<br>
-                        🍽️ ${carbEntries.length} carb entries + ${bolusEntries.length} boluses<br>
-                        💉 ${corrections.length} corrections + ${filteredTreatments.length} total treatments
-                    </div>
-                `;
-                
-                copySection.style.display = 'block';
-                
-                const preview = JSON.stringify(exportedData, null, 2).substring(0, 400) + '...';
-                document.getElementById('dataPreview').textContent = preview;
-                
-                addDebugLog('Export completed successfully');
-                
-            } catch (error) {
-                addDebugLog(`Export failed: ${error.message}`);
-                statusDiv.innerHTML = `
-                    <div class="status error">
-                        ❌ Export Failed<br>
-                        ${error.message}<br>
-                        Check debug info below for details
-                    </div>
-                `;
-                console.error('Export error:', error);
-            }
         }
 
         async function fetchNightscoutData(endpoint, params) {
@@ -590,15 +110,355 @@
                 alert('Data copied to clipboard!');
             }
         }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 24px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .timezone-section, .time-picker-section {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .timezone-section label, .time-picker-section label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+        
+        .timezone-display {
+            padding: 12px;
+            background: #e8f5e8;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2e7d32;
+        }
+        
+        .timezone-input, .time-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .timezone-input:focus, .time-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .timezone-section small, .time-picker-section small {
+            display: block;
+            color: #6c757d;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        .export-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 20px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 15px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .export-btn:active {
+            transform: translateY(0);
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffc107;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        
+        .copy-section {
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .copy-btn {
+            width: 100%;
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        .copy-btn:hover {
+            background: #218838;
+        }
+        
+        .data-preview {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .validation-summary {
+            background: #e8f5e8;
+            border: 2px solid #4caf50;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+        
+        .validation-summary h4 {
+            color: #2e7d32;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .validation-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+        
+        .validation-value {
+            font-weight: 600;
+            color: #1565c0;
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border: 2px solid #b3d9ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .instructions h3 {
+            color: #0056b3;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+        }
+        
+        .debug-info {
+            background: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🩺 iAPS Data Exporter</h1>
+        <p class="subtitle">✨ Optimized for Claude Analysis • Pre-sorted & Timezone Converted</p>
+        
+        <div class="timezone-section">
+            <label>System Timezone:</label>
+            <div id="detectedTimezone" class="timezone-display"></div>
+            <small>Automatically detected from your system</small>
+        </div>
+        
+        <div class="time-picker-section">
+            <label for="endTime">Analysis End Time (24h window ends here):</label>
+            <input type="datetime-local" id="endTime" class="time-input">
+            <small>Default: Current time (recommended for latest data)</small>
+        </div>
+        
+        <button class="export-btn" onclick="exportData()">
+            🚀 Export Optimized 24h Dataset
+        </button>
+        
+        <div id="status"></div>
+        <div id="validationSummary"></div>
+        <div id="debugInfo" class="debug-info" style="display: none;"></div>
+        
+        <div id="copySection" class="copy-section">
+            <button class="copy-btn" onclick="copyToClipboard()">
+                📋 Copy Optimized Data for Claude
+            </button>
+            <div class="data-preview" id="dataPreview"></div>
+        </div>
+        
+        <div class="instructions">
+            <h3>🎯 iAPS Analysis Optimizations:</h3>
+            <ul>
+                <li><strong>Chronological Pre-sorting:</strong> All data sorted oldest-to-newest</li>
+                <li><strong>Timezone Pre-conversion:</strong> All timestamps in your local time</li>
+                <li><strong>Data Completeness Validation:</strong> Missing data detection</li>
+                <li><strong>Enhanced Metadata:</strong> Quality flags and validation reports</li>
+                <li><strong>Optimized Structure:</strong> Eliminates Claude processing errors</li>
+            </ul>
+            <p><strong>💡 Designed to prevent timeline organization failures in AI analysis!</strong></p>
+        </div>
+    </div>
 
-        window.addEventListener('load', () => {
-            // Set default end time to current time
-            const now = new Date();
-            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-            document.getElementById('endTime').value = localDateTime;
+    <script>
+        const CONFIG = {
+            baseUrl: 'https://bmac.us.nightscoutpro.com',
+            apiSecret: 'uFhaZjS2jLaz',
+            token: 'cockpit-cdbc465a76b45661'
+        };
+
+        let exportedData = null;
+        let debugLog = [];
+
+        function addDebugLog(message) {
+            debugLog.push(`${new Date().toLocaleTimeString()}: ${message}`);
+            const debugDiv = document.getElementById('debugInfo');
+            debugDiv.textContent = debugLog.join('\n');
+            debugDiv.style.display = 'block';
+            console.log(message);
+        }
+
+        function convertToLocalTime(utcDateString, timezone) {
+            const date = new Date(utcDateString);
+            const options = {
+                timeZone: timezone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
             
-            addDebugLog('App loaded, ready to export data');
-        });
-    </script>
-</body>
-</html>
+            const formatter = new Intl.DateTimeFormat('en-CA', options);
+            const parts = formatter.formatToParts(date);
+            
+            const year = parts.find(p => p.type === 'year').value;
+            const month = parts.find(p => p.type === 'month').value;
+            const day = parts.find(p => p.type === 'day').value;
+            const hour = parts.find(p => p.type === 'hour').value;
+            const minute = parts.find(p => p.type === 'minute').value;
+            const second = parts.find(p => p.type === 'second').value;
+            
+            return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+        }
+
+        function detectDataGaps(dataArray, expectedIntervalMinutes = 5) {
+            if (dataArray.length < 2) return [];
+            
+            const gaps = [];
+            for (let i = 1; i < dataArray.length; i++) {
+                const prevTime = new Date(dataArray[i-1].localDateTime);
+                const currTime = new Date(dataArray[i].localDateTime);
+                const diffMinutes = (currTime - prevTime) / (1000 * 60);
+                
+                if (diffMinutes > expectedIntervalMinutes * 2) {
+                    gaps.push({
+                        start: dataArray[i-1].localDateTime,
+                        end: dataArray[i].localDateTime,
+                        durationMinutes: Math.round(diffMinutes)
+                    });
+                }
+            }
+            return gaps;
+        }
+
+        function validateDataCompleteness(startTime, endTime, glucoseData, treatmentData) {
+            const startTimestamp = new Date(startTime).getTime();
+            const endTimestamp = new Date(endTime).getTime();
+            const windowHours = (endTimestamp - startTimestamp) / (1000 * 60 * 60);
+            
+            // Expected glucose readings (5-minute intervals)
+            const expectedGlucoseReadings = Math.floor(windowHours * 12);
+            
+            // Detect gaps in glucose data
+            const glucoseGaps = detectDataGaps(glucoseData, 5);
